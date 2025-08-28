@@ -10,72 +10,59 @@ const isCI = !!process.env.CI && String(process.env.CI).toLowerCase() !== 'false
 const isNonInteractive = argv.includes('--yes') || isCI || !process.stdout.isTTY;
 const forceOverwrite = argv.includes('--force');
 const dryRun = argv.includes('--dry-run');
-const platformIdx = argv.findIndex(arg => arg.startsWith('--platform='));
-const platformArg = platformIdx !== -1 ? argv[platformIdx].split('=')[1].toLowerCase() : '';
+const helpRequested = argv.includes('--help') || argv.includes('-h');
 
-// Strict platform mapping
-const platformMap = new Map([
-  ['next', 'Next.js (PWA)'],
-  ['ios', 'iOS (Swift)'],
-  ['flutter', 'Flutter (iOS & Android)']
-]);
-const resolvePlatform = () => {
-  const resolved = platformMap.get(platformArg);
-  if (!resolved) throw new Error(`Invalid --platform: ${platformArg || 'missing'}. Use next, ios, or flutter.`);
-  return resolved;
-};
+// Show help if requested
+if (helpRequested) {
+  console.log(`
+nxHuman CLI - Minimal AI-Assisted Development Framework
 
-// Paths used for logging and outputs
-const projectPath = process.cwd();
-const nxHumanPath = path.join(projectPath, 'nxHuman');
-const logsDir = path.join(nxHumanPath, 'logs');
-const logsFile = path.join(logsDir, 'actions.csv');
+Usage: nxhuman [options]
 
-// --- Telemetry: CSV logging ---
+Options:
+  --yes          Non-interactive mode
+  --force        Overwrite existing files
+  --dry-run      Show planned writes without modifying files
+  --help, -h     Show this help message
+  `);
+  process.exit(0);
+}
 
 const questions = [
   {
     type: 'confirm',
     name: 'confirm',
-    message: 'This will install the nxHuman engineering framework in the current directory. Continue?',
+    message: 'Install minimal nxHuman AI framework?',
     default: true
-  },
-  {
-    type: 'list',
-    name: 'platform',
-    message: 'Which platform are you targeting?',
-    choices: ['Next.js (PWA)', 'iOS (Swift)', 'Flutter (iOS & Android)'],
-    when: (answers) => answers.confirm
   }
 ];
 
 // --- Helper function to read framework files ---
 const readFrameworkFile = (filePath) => {
   try {
-    return fs.readFileSync(path.join(__dirname, filePath), 'utf-8');
+    const fullPath = path.join(__dirname, filePath);
+    if (!fs.existsSync(fullPath)) {
+      throw new Error(`Framework file not found at ${fullPath}`);
+    }
+    return fs.readFileSync(fullPath, 'utf-8');
   } catch (error) {
-    console.error(`Critical error: Framework file not found at ${filePath}. Installation cannot continue.`);
+    console.error(`Critical error: ${error.message}. Installation cannot continue.`);
     process.exit(1);
   }
 };
 
-// --- Scan for existing context files to avoid blind overwrites ---
+// --- Scan for existing context files ---
 const scanExistingContext = (projectPath) => {
   const candidates = [
     path.join(projectPath, '.cursorrules'),
-    path.join(projectPath, 'project-context.json'),
-    path.join(projectPath, 'nxHuman', 'project-context.json'),
-    path.join(projectPath, 'nxHuman', 'PERSONAS.md'),
-    path.join(projectPath, 'nxHuman', 'WORKFLOWS.md'),
-    path.join(projectPath, 'nxHuman', 'design.md'),
-    path.join(projectPath, 'nxHuman', 'libDocs.md'),
-    path.join(projectPath, 'nxHuman', 'system.md')
+    path.join(projectPath, 'nxhuman.json'),
+    path.join(projectPath, 'nxHuman')
   ];
   return candidates.filter((p) => fs.existsSync(p));
 };
 
 const writeFileSafe = async (filePath, content, options = {}) => {
-  const { force = false, writtenFiles = [] } = options;
+  const { force = false } = options;
   if (dryRun) {
     console.log(`DRY-RUN: Would write ${path.basename(filePath)}`);
     return;
@@ -88,124 +75,130 @@ const writeFileSafe = async (filePath, content, options = {}) => {
     throw new Error(`File exists: ${filePath}. Use --force to overwrite.`);
   }
   const tempPath = `${filePath}.tmp-${Date.now()}`;
-  fs.writeFileSync(tempPath, content);
-  fs.renameSync(tempPath, filePath);
-  writtenFiles.push(filePath);
-  console.log(`? Wrote ${path.basename(filePath)}`);
+  try {
+    fs.writeFileSync(tempPath, content);
+    fs.renameSync(tempPath, filePath);
+    console.log(`✓ Wrote ${path.basename(filePath)}`);
+  } catch (error) {
+    if (fs.existsSync(tempPath)) {
+      fs.unlinkSync(tempPath);
+    }
+    throw new Error(`Failed to write ${filePath}: ${error.message}`);
+  }
+};
+
+// --- Generate minimal .cursorrules content ---
+const generateCursorRules = () => {
+  return `# AI Instructions
+
+REFER TO nxhuman.json FOR COMPLETE DIRECTIVES
+
+PRIMARY DIRECTIVES:
+1. EVIDENCE > ASSUMPTIONS
+2. CODE > DOCUMENTATION
+3. EFFICIENCY > VERBOSITY
+4. USER VALUE > FEATURES
+
+ENGINEERING LOOP:
+1. MEASURE: Use codebase_search/grep first
+2. PLAN: Create checklist with success criteria
+3. EXECUTE: Make minimal, reversible changes
+4. VALIDATE: Run quality gates
+
+SPECIALIST ACTIVATION:
+- "system" → ARCHITECT
+- "UI/component" → FRONTEND
+- "API/service" → BACKEND
+- "auth/security" → SECURITY
+- "performance" → PERFORMANCE
+- "product/user" → PRODUCT
+
+QUALITY STANDARDS:
+- Components: Types + error boundaries
+- APIs: Validation + error responses
+- Functions: Single responsibility
+- Changes: Tests required
+
+PROGRESSIVE STRATEGY:
+1. Skeleton
+2. Functionality
+3. Resilience
+4. Polish
+5. Documentation
+`;
 };
 
 const run = async () => {
-  // Build answers either via prompt or non-interactive fast-path
-  let answers = {};
-  if (isNonInteractive) {
-    answers.confirm = true;
-    answers.platform = resolvePlatform();
-  } else {
-    answers = await inquirer.prompt(questions);
-  }
+  try {
+    let answers = {};
+    if (isNonInteractive) {
+      answers.confirm = true;
+    } else {
+      answers = await inquirer.prompt(questions);
+    }
 
-  if (!answers.confirm) {
-    console.log('Installation cancelled.');
-    return;
-  }
+    if (!answers.confirm) {
+      console.log('Installation cancelled.');
+      return;
+    }
 
-  const { platform } = answers;
-  const projectPath = process.cwd();
-  const nxHumanPath = path.join(projectPath, 'nxHuman');
+    const projectPath = process.cwd();
 
-  // Pre-scan existing context
-  const existing = scanExistingContext(projectPath);
-  if (existing.length > 0 && !forceOverwrite && !dryRun) {
-    console.error(`Detected existing nxHuman files. Re-run with --force to overwrite all, or use --dry-run to preview.`);
-    process.exit(1);
-  }
+    // Pre-scan existing context
+    const existing = scanExistingContext(projectPath);
+    if (existing.length > 0 && !forceOverwrite && !dryRun) {
+      console.error(`Detected existing nxHuman files. Use --force to overwrite.`);
+      process.exit(1);
+    }
 
-  // Create project and nxHuman directories (skip in dry-run)
-  if (!dryRun) {
-    fs.mkdirSync(nxHumanPath, { recursive: true });
-  }
+    // Create nxHuman directory
+    const nxHumanPath = path.join(projectPath, 'nxHuman');
+    if (!dryRun) {
+      try {
+        fs.mkdirSync(nxHumanPath, { recursive: true });
+      } catch (error) {
+        throw new Error(`Failed to create directory ${nxHumanPath}: ${error.message}`);
+      }
+    }
 
-  const context = {
-    projectName: path.basename(projectPath),
-    platform: platform,
-    architecture: {
-      style: "UNKNOWN: Please specify (e.g., Monolithic, Microservices, Serverless)",
-      keyDecisions: []
-    },
-    techStack: {
-      frontend: {
-        framework: platform === 'Next.js (PWA)' ? 'Next.js' : (platform === 'Flutter (iOS & Android)' ? 'Flutter' : 'UNKNOWN'),
-        language: platform === 'Next.js (PWA)' ? 'TypeScript/JavaScript' : (platform === 'iOS (Swift)' ? 'Swift' : (platform === 'Flutter (iOS & Android)' ? 'Dart' : 'UNKNOWN')),
-        uiLibrary: "UNKNOWN: Please specify (e.g., Material UI, TailwindCSS, custom)"
+    // Minimal project context
+    const context = {
+      projectName: path.basename(projectPath),
+      techStack: {
+        frontend: { language: 'TypeScript' },
+        backend: { database: "UNKNOWN" }
       },
-      backend: {
-        framework: "UNKNOWN: Please specify (e.g., Node.js/Express, Python/Django, Go)",
-        database: "UNKNOWN: Please specify (e.g., PostgreSQL, MongoDB, DynamoDB)"
-      }
-    },
-    design: {
-      system: "See `/nxHuman/design.md` for brand identity, colors, and typography.",
-      assets: "User-provided asset paths are located in `/nxHuman/design.md`."
-    },
-    decisionLog: [
-      {
-        date: new Date().toISOString(),
-        decision: `Initial project setup for ${platform}.`,
-        rationale: "User selection during nxHuman CLI setup.",
-        status: "COMMITTED"
-      }
-    ],
-    unknowns: [
-      "Define primary user stories and core features.",
-      "Specify API contracts and data models.",
-      "Detail the deployment strategy and CI/CD pipeline."
-    ]
-  };
+      decisionLog: [],
+      unknowns: [
+        "Define core features",
+        "Specify API contracts",
+        "Choose components"
+      ]
+    };
 
-  // Handle root project-context.json merge
-  const rootContextPath = path.join(projectPath, 'project-context.json');
-  if (fs.existsSync(rootContextPath) && !dryRun) {
-    const rootContent = JSON.parse(fs.readFileSync(rootContextPath, 'utf-8'));
-    Object.assign(context, rootContent); // simple merge, new wins
-    fs.unlinkSync(rootContextPath); // move to nxHuman
-    console.log('? Merged and moved root project-context.json to nxHuman/');
-  }
+    // Write minimal files
+    const nxhumanJsonTemplate = readFrameworkFile('nxHuman/nxhuman-template.json');
+    
+    // Write files
+    await writeFileSafe(path.join(projectPath, 'nxhuman.json'), nxhumanJsonTemplate, { force: forceOverwrite });
+    await writeFileSafe(path.join(projectPath, '.cursorrules'), generateCursorRules(), { force: forceOverwrite });
+    await writeFileSafe(path.join(nxHumanPath, 'project-context.json'), JSON.stringify(context, null, 2), { force: forceOverwrite });
 
-  // Write the project context file
-  const contextFilePath = path.join(nxHumanPath, 'project-context.json');
-  const writtenFiles = [];
-  await writeFileSafe(contextFilePath, JSON.stringify(context, null, 2), { force: forceOverwrite, writtenFiles });
-
-  // --- Copy framework files into nxHuman folder ---
-  const personasContent = readFrameworkFile('nxHuman/PERSONAS.md');
-  const workflowsContent = readFrameworkFile('nxHuman/WORKFLOWS.md');
-  const systemContent = readFrameworkFile('nxHuman/system.md');
-  const designContent = readFrameworkFile('nxHuman/design.md');
-  const libDocsContent = readFrameworkFile('nxHuman/libDocs.md');
-  const cursorRulesTemplate = readFrameworkFile('nxHuman/cursorrules-template.md');
-
-  await writeFileSafe(path.join(nxHumanPath, 'PERSONAS.md'), personasContent, { force: forceOverwrite, writtenFiles });
-  await writeFileSafe(path.join(nxHumanPath, 'WORKFLOWS.md'), workflowsContent, { force: forceOverwrite, writtenFiles });
-  await writeFileSafe(path.join(nxHumanPath, 'system.md'), systemContent, { force: forceOverwrite, writtenFiles });
-  await writeFileSafe(path.join(nxHumanPath, 'design.md'), designContent, { force: forceOverwrite, writtenFiles });
-  await writeFileSafe(path.join(nxHumanPath, 'libDocs.md'), libDocsContent, { force: forceOverwrite, writtenFiles });
-
-
-  // --- Create a comprehensive .cursorrules file ---
-  const cursorRulesPath = path.join(projectPath, '.cursorrules');
-  await writeFileSafe(cursorRulesPath, cursorRulesTemplate, { force: forceOverwrite, writtenFiles });
-
-  // Note: Partial update warning removed. In non-dry-run mode, we either overwrite all (with --force)
-  // or exit early when existing files are detected. Dry-run mode only reports planned writes.
-
-  if (dryRun) {
-    console.log(`\nDRY-RUN COMPLETE: No files written. Use --force with --yes to run non-interactively.`);
-  } else {
-    console.log(`\n? nxHuman framework installed. You can start building with your AI assistant.`);
+    if (dryRun) {
+      console.log(`\nDRY-RUN COMPLETE: No files written.`);
+    } else {
+      console.log(`\n✓ Minimal nxHuman framework installed.`);
+      console.log(`\nNext steps:`);
+      console.log(`1. Open in Cursor to read .cursorrules and nxhuman.json`);
+      console.log(`2. Build with AI assistance`);
+    }
+  } catch (err) {
+    console.error(`Error: ${err?.message || err}`);
+    process.exit(1);
   }
 };
 
 run().catch((err) => {
-  console.error(`Unexpected error: ${err?.message || err}`);
+  console.error(`Error: ${err?.message || err}`);
   process.exit(1);
 });

@@ -1,0 +1,17 @@
+{
+  "projectName": "command",
+  "techStack": {
+    "frontend": {
+      "language": "TypeScript"
+    },
+    "backend": {
+      "database": "UNKNOWN"
+    }
+  },
+  "decisionLog": [],
+  "unknowns": [
+    "Define core features",
+    "Specify API contracts",
+    "Choose components"
+  ]
+}

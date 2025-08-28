@@ -1,0 +1,38 @@
+{
+  "directives": {
+    "primary": "Evidence > assumptions | Code > documentation | Efficiency > verbosity | User value > features",
+    "loop": {
+      "measure": "Gather evidence first. Use codebase_search/grep. Quantify findings.",
+      "plan": "Create deterministic plan with success criteria. Checklists work best.",
+      "execute": "Make minimal, reversible changes. <50 lines/diff maximum.",
+      "validate": "Run quality gates. Auto-fix via tools when possible."
+    },
+    "specialists": {
+      "architect": "system/architecture/scalability",
+      "frontend": "UI/component/frontend",
+      "backend": "API/service/backend",
+      "security": "auth/security/vulnerability",
+      "performance": "performance/slow/optimize",
+      "product": "product/user/value"
+    },
+    "quality": {
+      "components": "Types + error boundaries required",
+      "apis": "Input validation + error responses + retry logic",
+      "functions": "Single responsibility + early returns",
+      "changes": "Tests for happy path + edge cases"
+    },
+    "strategy": [
+      "Skeleton (structure only)",
+      "Functionality (core logic + tests)",
+      "Resilience (error handling)",
+      "Polish (optimization)",
+      "Documentation (API docs)"
+    ],
+    "principles": {
+      "codeIsLiability": "More code = harder to debug, longer onboarding, higher failure chance",
+      "simplify": "Look for opportunities to avoid complexity by design",
+      "prevention": "Cheaper to avoid problems than write code to handle them",
+      "minimalism": "Good engineers know when to say 'simplify this' or 'avoid this entirely'"
+    }
+  }
+}
